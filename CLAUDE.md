@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A collection of standalone Python CLI tools for web scraping and Excel data manipulation. Each tool has a matching Jupyter notebook (`.ipynb`) for interactive exploration of the same logic.
+A collection of standalone Python CLI tools for web scraping, PDF extraction, CSV transformation, and Excel data manipulation. Each tool has a matching Jupyter notebook (`.ipynb`) for interactive exploration of the same logic.
 
 ## Running the Scripts
 
@@ -35,6 +35,20 @@ python attr_scraper_selenium.py --url "https://example.com" \
 
 # Excel merge (2+ files, optional key column)
 python excel_merge.py --files a.xlsx b.xlsx c.xlsx --merge-key ID --output merged.xlsx
+
+# PDF extractor — text mode (one row per page)
+python pdf_extractor.py --input report.pdf --mode text --output pages.csv
+
+# PDF extractor — table mode (structured rows from page 1-3)
+python pdf_extractor.py --input data.pdf --mode table --pages 1-3 --output table.csv
+
+# CSV transformer — filter, dedupe, rename, select columns
+python csv_transformer.py --input data.csv \
+    --filter "status == 'active'" \
+    --dedupe --dedupe-cols id \
+    --rename "product_name:name" \
+    --select id name price \
+    --output clean.csv
 ```
 
 ## Installing Dependencies
@@ -72,6 +86,18 @@ Simpler, single-column output. Three extraction modes selected by CLI flags:
 
 Chains pandas outer merges across 2+ Excel files in the order given. Each merge step appends a `_merge_N` indicator column (`left_only` / `right_only` / `both`) which is retained in the output, making it easy to see which rows came from which source files.
 
+### `pdf_extractor.py`
+
+Two modes selected by `--mode`:
+- `text` — extracts raw text from each page; one row per page with `page` + `text` columns
+- `table` — extracts a structured table using the first row as the header; `--table-index` selects which table per page (0-based) when multiple tables exist
+
+`--pages` accepts comma-separated values and ranges (e.g. `1,3,5-7`); omitting it processes all pages.
+
+### `csv_transformer.py`
+
+Applies up to four transformations in a fixed order regardless of flag sequence: **filter → dedupe → rename → select**. `--filter` uses pandas `query()` syntax. `--rename` uses `old:new` pairs, consistent with the `name:attr:value` convention in the scraper family. All transformation functions accept and return plain DataFrames, making them directly importable for the future MCP server layer.
+
 ## Notebooks
 
-Each `.py` script has a paired `.ipynb` that mirrors its logic. When modifying a script, keep the corresponding notebook in sync.
+Each `.py` script has a paired `.ipynb` that mirrors its logic. When modifying a script, keep the corresponding notebook in sync. The `csv_transformer.ipynb` writes a self-contained sample CSV in Section 1 so it can be run without any external file.
