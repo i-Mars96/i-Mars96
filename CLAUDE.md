@@ -39,15 +39,12 @@ python excel_merge.py --files a.xlsx b.xlsx c.xlsx --merge-key ID --output merge
 
 ## Installing Dependencies
 
-There is no `requirements.txt`. Install per-tool as needed:
-
 ```bash
-pip install requests beautifulsoup4          # web_scraper, attr_scraper
-pip install playwright beautifulsoup4        # attr_scraper_playwright
-playwright install chromium
-pip install selenium beautifulsoup4          # attr_scraper_selenium (+ Chrome + ChromeDriver)
-pip install pandas openpyxl                  # excel_merge
+pip install -r requirements.txt
+playwright install chromium   # additionally required for attr_scraper_playwright
 ```
+
+`attr_scraper_selenium` also requires Chrome and ChromeDriver installed and on `PATH`.
 
 ## Architecture
 
