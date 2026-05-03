@@ -1,7 +1,9 @@
 beautifulsoup4
+mcp==1.27.0
 openpyxl
 pandas
 pdfplumber
 playwright
+python-docx
 requests
 selenium

@@ -101,3 +101,9 @@ Applies up to four transformations in a fixed order regardless of flag sequence:
 ## Notebooks
 
 Each `.py` script has a paired `.ipynb` that mirrors its logic. When modifying a script, keep the corresponding notebook in sync. The `csv_transformer.ipynb` writes a self-contained sample CSV in Section 1 so it can be run without any external file.
+
+## Setup Documents
+
+`MCP_SETUP_GUIDE.md` is the canonical reference for onboarding a new laptop and implementing the MCP server that exposes these tools to Claude Desktop. It covers prerequisites, implementation steps, testing, and Claude Desktop config.
+
+Run `python generate_docx.py` to regenerate `MCP_SETUP_GUIDE.docx` (Word format) after editing the markdown.
