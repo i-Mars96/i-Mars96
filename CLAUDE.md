@@ -107,3 +107,7 @@ Each `.py` script has a paired `.ipynb` that mirrors its logic. When modifying a
 `MCP_SETUP_GUIDE.md` is the canonical reference for onboarding a new laptop and implementing the MCP server that exposes these tools to Claude Desktop. It covers prerequisites, implementation steps, testing, and Claude Desktop config.
 
 Run `python generate_docx.py` to regenerate `MCP_SETUP_GUIDE.docx` (Word format) after editing the markdown.
+
+## Agents
+
+`weather_alert_agent.py` — Heat safety alert agent for outdoor work crews. Fetches current conditions from NWS, Open-Meteo, and OpenWeatherMap (3-source average), classifies heat risk using OSHA thresholds, and uses the Claude API to generate a natural-language alert with specific supply and scheduling recommendations. Delivers via Gmail, Slack, or stdout. Copy `.env.example` to `.env` and fill in credentials before running.

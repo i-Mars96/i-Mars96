@@ -4,6 +4,7 @@ import json
 
 import pdfplumber
 import pandas as pd
+import requests
 from bs4 import BeautifulSoup
 from mcp.server.fastmcp import FastMCP
 
@@ -66,6 +67,25 @@ def scrape_web(
 
     records = [{"value": v} for v in data]
     return json.dumps({"record_count": len(records), "records": records}, ensure_ascii=False)
+
+
+@mcp.tool()
+def fetch_json(
+    url: str,
+    headers: dict | None = None,
+) -> str:
+    """
+    Fetch a JSON REST API endpoint and return its contents.
+
+    Merges any provided headers with a default User-Agent. Raises on non-2xx responses.
+    Returns JSON with the parsed API response nested under the key "data".
+
+    Useful for APIs like NWS (api.weather.gov), Open-Meteo, OpenWeatherMap, etc.
+    """
+    merged_headers = {"User-Agent": "Mozilla/5.0", **(headers or {})}
+    response = requests.get(url, headers=merged_headers, timeout=10)
+    response.raise_for_status()
+    return json.dumps({"data": response.json()}, ensure_ascii=False)
 
 
 @mcp.tool()
