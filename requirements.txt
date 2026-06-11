@@ -7,5 +7,6 @@ pdfplumber
 playwright
 python-docx
 python-dotenv
+pytest
 requests
 selenium
