@@ -1,6 +1,8 @@
 """MCP server — exposes the i-Mars96 CLI toolkit as Claude Desktop tools."""
 
 import json
+import pathlib
+from datetime import datetime, timezone
 
 import pdfplumber
 import pandas as pd
@@ -210,6 +212,8 @@ def extract_pdf(
 
     Returns JSON with record_count and records.
     """
+    if mode not in ("text", "table"):
+        raise ValueError(f"mode must be 'text' or 'table', got {mode!r}")
     with pdfplumber.open(pdf_path) as pdf:
         total = len(pdf.pages)
         page_indices = parse_page_numbers(pages, total)
@@ -264,6 +268,79 @@ def transform_csv(
         ensure_ascii=False,
         default=str,
     )
+
+
+@mcp.tool()
+def list_directory(path: str, pattern: str = "*") -> str:
+    """
+    List files in a directory, optionally filtered by a glob pattern.
+
+    Returns each entry's name, size_bytes, and modified timestamp (ISO 8601),
+    sorted by most-recently-modified first (up to 500 entries).
+    Useful for discovering available data files before calling other tools.
+
+    Examples:
+      list_directory("/data")
+      list_directory("/data", pattern="*.csv")
+      list_directory("/data", pattern="**/*.xlsx")
+    """
+    p = pathlib.Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Directory not found: {path!r}")
+    if not p.is_dir():
+        raise NotADirectoryError(f"Not a directory: {path!r}")
+
+    entries = sorted(p.glob(pattern), key=lambda f: f.stat().st_mtime, reverse=True)[:500]
+    files = [
+        {
+            "name": str(e.relative_to(p)),
+            "size_bytes": e.stat().st_size,
+            "modified": datetime.fromtimestamp(e.stat().st_mtime, tz=timezone.utc).isoformat(),
+        }
+        for e in entries
+        if e.is_file()
+    ]
+    return json.dumps({"path": str(p.resolve()), "file_count": len(files), "files": files},
+                      ensure_ascii=False)
+
+
+@mcp.tool()
+def describe_dataset(file_path: str, sample_rows: int = 3) -> str:
+    """
+    Return a structural summary of a CSV or Excel (.xlsx) file.
+
+    Includes column names, dtypes, null counts, numeric min/max/mean, and
+    a configurable number of sample rows. Lets an agent understand a dataset
+    before deciding how to transform or query it.
+
+    Returns JSON with shape, columns, dtypes, null_counts, numeric_summary,
+    and sample.
+    """
+    p = pathlib.Path(file_path)
+    if not p.exists():
+        raise FileNotFoundError(f"File not found: {file_path!r}")
+
+    suffix = p.suffix.lower()
+    if suffix == ".csv":
+        df = pd.read_csv(file_path)
+    elif suffix in (".xlsx", ".xls"):
+        df = pd.read_excel(file_path)
+    else:
+        raise ValueError(f"Unsupported file type {suffix!r}. Use .csv or .xlsx.")
+
+    numeric_summary = json.loads(
+        df.describe(include="number").to_json(force_ascii=False)
+    ) if not df.select_dtypes("number").empty else {}
+
+    result = {
+        "shape": {"rows": df.shape[0], "columns": df.shape[1]},
+        "columns": list(df.columns),
+        "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+        "null_counts": df.isnull().sum().to_dict(),
+        "numeric_summary": numeric_summary,
+        "sample": json.loads(df.head(sample_rows).to_json(orient="records", force_ascii=False)),
+    }
+    return json.dumps(result, ensure_ascii=False, default=str)
 
 
 if __name__ == "__main__":

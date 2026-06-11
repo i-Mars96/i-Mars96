@@ -125,7 +125,7 @@ def fetch_openweathermap(lat: float, lon: float, api_key: str) -> dict | None:
             "source": "owm",
         }
     except Exception as e:
-        print(f"  [OpenWeatherMap] unavailable: {e}")
+        print(f"  [OpenWeatherMap] unavailable: {type(e).__name__}")
         return None
 
 
@@ -263,6 +263,27 @@ def send_alert(message: str, risk: dict, lat: float, lon: float, channel: str) -
 
 
 # ---------------------------------------------------------------------------
+# Delivery config validation
+# ---------------------------------------------------------------------------
+
+def validate_delivery_config(channel: str) -> None:
+    """Raise early with a clear message if delivery credentials are missing."""
+    if channel == "email":
+        missing = [v for v in ("SMTP_USER", "SMTP_PASS", "ALERT_TO") if not os.environ.get(v)]
+        if missing:
+            raise RuntimeError(
+                f"Missing env vars for email delivery: {', '.join(missing)}\n"
+                "Set them in .env or export before running."
+            )
+    elif channel == "slack":
+        if not os.environ.get("SLACK_WEBHOOK_URL"):
+            raise RuntimeError(
+                "SLACK_WEBHOOK_URL is not set.\n"
+                "Set it in .env or export before running."
+            )
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -277,6 +298,8 @@ def main():
         help="Delivery channel (default: stdout)",
     )
     args = parser.parse_args()
+
+    validate_delivery_config(args.channel)
 
     print(f"Fetching weather for {args.lat}, {args.lon}...")
     owm_key = os.environ.get("OPENWEATHERMAP_API_KEY")

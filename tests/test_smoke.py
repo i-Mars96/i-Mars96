@@ -253,6 +253,48 @@ class TestMcpServer:
         with pytest.raises(FileNotFoundError):
             mcp_server.extract_pdf("/nonexistent/file.pdf")
 
+    def test_extract_pdf_bad_mode_raises(self):
+        with pytest.raises(ValueError, match="'text' or 'table'"):
+            mcp_server.extract_pdf("/nonexistent/file.pdf", mode="xml")
+
+    def test_list_directory(self, tmp_path):
+        (tmp_path / "a.csv").write_text("id\n1")
+        (tmp_path / "b.xlsx").write_text("")
+        data = json.loads(mcp_server.list_directory(str(tmp_path), pattern="*.csv"))
+        assert data["file_count"] == 1
+        assert data["files"][0]["name"] == "a.csv"
+        assert "size_bytes" in data["files"][0]
+        assert "modified" in data["files"][0]
+
+    def test_list_directory_missing_raises(self):
+        with pytest.raises(FileNotFoundError):
+            mcp_server.list_directory("/no/such/dir")
+
+    def test_list_directory_file_not_dir_raises(self, tmp_path):
+        f = tmp_path / "file.txt"
+        f.write_text("hello")
+        with pytest.raises(NotADirectoryError):
+            mcp_server.list_directory(str(f))
+
+    def test_describe_dataset_csv(self, tmp_path):
+        src = tmp_path / "data.csv"
+        pd.DataFrame({"x": [1, 2, None], "label": ["a", "b", "c"]}).to_csv(src, index=False)
+        data = json.loads(mcp_server.describe_dataset(str(src)))
+        assert data["shape"] == {"rows": 3, "columns": 2}
+        assert "x" in data["columns"]
+        assert data["null_counts"]["x"] == 1
+        assert len(data["sample"]) == 3
+
+    def test_describe_dataset_bad_extension_raises(self, tmp_path):
+        f = tmp_path / "file.json"
+        f.write_text("{}")
+        with pytest.raises(ValueError, match="Unsupported file type"):
+            mcp_server.describe_dataset(str(f))
+
+    def test_describe_dataset_missing_file_raises(self):
+        with pytest.raises(FileNotFoundError):
+            mcp_server.describe_dataset("/no/such/file.csv")
+
 
 # ---------------------------------------------------------------------------
 # weather_alert_agent
@@ -357,6 +399,30 @@ class TestWeatherAgent:
     def test_send_alert_unknown_channel(self):
         with pytest.raises(ValueError, match="Unknown channel"):
             agent.send_alert("msg", {"level": "low"}, 0.0, 0.0, "carrier_pigeon")
+
+    def test_validate_delivery_email_missing_vars(self, monkeypatch):
+        for v in ("SMTP_USER", "SMTP_PASS", "ALERT_TO"):
+            monkeypatch.delenv(v, raising=False)
+        with pytest.raises(RuntimeError, match="Missing env vars"):
+            agent.validate_delivery_config("email")
+
+    def test_validate_delivery_slack_missing_webhook(self, monkeypatch):
+        monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
+        with pytest.raises(RuntimeError, match="SLACK_WEBHOOK_URL"):
+            agent.validate_delivery_config("slack")
+
+    def test_validate_delivery_stdout_always_passes(self):
+        agent.validate_delivery_config("stdout")  # must not raise
+
+    def test_owm_failure_hides_key(self, monkeypatch, capsys):
+        def boom(url, headers=None):
+            raise ConnectionError("connection refused")
+        monkeypatch.setattr(mcp_server, "fetch_json", boom)
+        result = agent.fetch_openweathermap(30.0, -97.0, "SECRET_KEY_XYZ")
+        assert result is None
+        out = capsys.readouterr().out
+        assert "SECRET_KEY_XYZ" not in out
+        assert "unavailable" in out
 
 
 # ---------------------------------------------------------------------------
